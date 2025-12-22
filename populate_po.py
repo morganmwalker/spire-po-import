@@ -9,14 +9,9 @@ import urllib.parse
 import os
 import csv
 
-file_path = r"secrets\spire.json"
-
-with open(file_path, "r") as f:
-    spire = json.load(f)
-
-root_url = spire["root"]
-username = spire["username"]
-password = spire["password"]
+root_url = os.environ["SPIRE_ROOT_URL"]
+username = os.environ["SPIRE_USERNAME"]
+password = os.environ["SPIRE_PASSWORD"]
 
 headers = {"accept": "application/json"}
 
