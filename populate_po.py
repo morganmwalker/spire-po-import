@@ -76,8 +76,9 @@ def create_inventory_item(part_no, description, cost):
     else:
         return response.text
 
+# Checks if the given part no exists in warehouse 00
 def item_exists(part_no):
-    part_no_filter = format_json_filter({"partNo": part_no.upper()})
+    part_no_filter = format_json_filter({"whse": "00", "partNo": part_no.upper()})
     url = f"{root_url}/inventory/items/?{part_no_filter}"
     response = requests.get(url, headers=headers, auth=auth)
     if response.status_code == 200 and response.json()["records"] != []:
