@@ -29,18 +29,18 @@ message_2 = f"Note that this program OVERWRITES the existing purchase order item
 
 # FUNCTIONS
 
-# Returns URL filters for Spire's API given the key and value
-def format_json(key, value):
-    url_filter = {key:value}
-    filter_json = json.dumps(url_filter)
-    url_safe_json = urllib.parse.quote_plus(filter_json)
-    return f"filter={url_safe_json}"
+# Encodes url-unsafe characters and returns filter to append to url
+def format_json_filter(json_filter):
+  url_filter = json_filter
+  filter_json = json.dumps(url_filter)
+  url_safe_json = urllib.parse.quote_plus(filter_json)
+  return f"filter={url_safe_json}"
 
 # Interprets the input as a Spire PO number and creates the request url
 def process_po_number(no):
     # PO numbers are always 10 digits, so pad the input with 0's
     po_number = no.zfill(10)
-    po_filter = format_json("number", po_number)
+    po_filter = format_json_filter({"number": po_number})
     url = f"{root_url}/purchasing/orders/?{po_filter}"
     return {"po_number": no, "url": url}
 
@@ -77,7 +77,7 @@ def create_inventory_item(part_no, description, cost):
         return response.text
 
 def item_exists(part_no):
-    part_no_filter = format_json("partNo", part_no.upper())
+    part_no_filter = format_json_filter({"partNo": part_no.upper()})
     url = f"{root_url}/inventory/items/?{part_no_filter}"
     response = requests.get(url, headers=headers, auth=auth)
     if response.status_code == 200 and response.json()["records"] != []:
