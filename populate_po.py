@@ -86,54 +86,60 @@ def item_exists(part_no):
     else:
         return False
 
+def process_line_item(row, headers_map, create_inventory: bool, vendor_no):
+    try:
+        part_no = row[headers_map["PART NO"]].strip()
+        order_qty = row[headers_map["ORDER QTY"]].strip()
+        
+        # Safe extraction for optional fields
+        unit_price = float(row[headers_map["UNIT PRICE"]].strip()) if "UNIT PRICE" in headers_map else None
+        description = row[headers_map["DESCRIPTION"]].strip() if "DESCRIPTION" in headers_map else ""
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error geting values for {part_no}: {e}") 
+
+    # Inventory logic
+    if create_inventory and not item_exists(part_no):
+        if description:
+            try:
+                create_inventory_item(part_no, description, unit_price, vendor_no)
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Error creating {part_no}: {e}")
+        else:
+            print(f"Warning: {part_no} needs a description to be created!")
+
+    # Construct item payload
+    item = {
+        "inventory": {
+            "whse": "00",
+            "partNo": part_no
+        },
+        "orderQty": order_qty
+    }
+    
+    if unit_price: item["unitPrice"] = unit_price
+    if description: item["description"] = description
+    
+    return item
+
 # Function to create the payload from the csv file
-def create_payload(csv_file: UploadFile, required_headers, create_inventory: bool):
+def create_payload(csv_file: UploadFile, required_headers, create_inventory: bool, vendor_no):
     base_payload = {
         "items": []
     }
-    with io.TextIOWrapper(csv_file.file, encoding="utf-8", newline="") as file:
+    with io.TextIOWrapper(csv_file.file, encoding="utf-8-sig", newline="") as file:
         csv_file = csv.reader(file)
 
         headers = next(csv_file)
-        uppercase_headers = {header.upper(): i for i, header in enumerate(headers)}
+        headers_map = {header.upper(): i for i, header in enumerate(headers)}
 
         for header in required_headers:
-            if header not in uppercase_headers:
-                raise HTTPException(status_code=422, detail=f"Missing {header} column") 
+            if header not in headers_map:
+                raise HTTPException(status_code=400, detail=f"Missing {header} column") 
  
-        for line_no, lines in enumerate(csv_file):
-            # UOM autopopulates with stock UOM
-            try:
-                part_no = lines[uppercase_headers["PART NO"]].strip()
-                order_qty = lines[uppercase_headers["ORDER QTY"]].strip()
-                unit_price = float(lines[uppercase_headers.get("UNIT PRICE")].strip()) if "UNIT PRICE" in uppercase_headers else None
-                description = lines[uppercase_headers.get("DESCRIPTION")].strip() if "DESCRIPTION" in uppercase_headers else ""
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Error geting values for {part_no}: {e}") 
-            
-            if create_inventory and not item_exists(part_no):
-                if description: 
-                    print(f"Creating inventory item {part_no}")
-                    try: 
-                        create_inventory_item(part_no, description, unit_price)
-                    except Exception as e:
-                        raise HTTPException(status_code=400, detail=f"Error creating {part_no}: {e}") 
-                else:
-                    print(f"{part_no} needs a description to be created!")
-            
-            item = {
-                "inventory": {
-                    "whse": "00", # Default warehouse is 00
-                    "partNo": part_no
-                },
-                "orderQty": order_qty
-            }
-            if unit_price:
-                item["unitPrice"] = unit_price
-            if description:
-                item["description"] = description
-
-            base_payload["items"].append(item)
+        for line in csv_file:
+            if not any(line): continue  # Skip empty lines
+            processed_item = process_line_item(line, headers_map, create_inventory, vendor_no)
+            base_payload["items"].append(processed_item)
     return base_payload
 
 app = FastAPI()
