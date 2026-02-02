@@ -102,10 +102,10 @@ def clean_numeric(value: str):
 def process_line_item(row, headers_map, create_inventory: bool, vendor_no):
     try:
         part_no = row[headers_map["PART NO"]].strip()
-        order_qty = row[headers_map["ORDER QTY"]].strip()
+        raw_qty = row[headers_map["ORDER QTY"]].strip()
         
         # Safe extraction for optional fields
-        unit_price = float(row[headers_map["UNIT PRICE"]].strip()) if "UNIT PRICE" in headers_map else None
+        raw_price = row[headers_map["UNIT PRICE"]].strip() if "UNIT PRICE" in headers_map else None
         description = row[headers_map["DESCRIPTION"]].strip() if "DESCRIPTION" in headers_map else ""
 
         # Clean numeric values
@@ -114,7 +114,7 @@ def process_line_item(row, headers_map, create_inventory: bool, vendor_no):
 
         if order_qty is None:
             raise ValueError(f"Invalid quantity: {raw_qty}")
-            
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error geting values for {part_no}: {e}") 
 
