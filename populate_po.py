@@ -8,6 +8,7 @@ import time
 import urllib.parse
 import os
 import csv
+import re
 
 root_url = os.environ["SPIRE_ROOT_URL"]
 username = os.environ["SPIRE_USERNAME"]
@@ -86,6 +87,18 @@ def item_exists(part_no):
     else:
         return False
 
+# Extract float values from cells with unclean data
+def clean_numeric(value: str):
+    if not value:
+        return None
+    # Remove everything except digits and decimal points
+    cleaned = re.sub(r'[^\d.]', '', value)
+    try:
+        return float(cleaned) if cleaned else None
+    except ValueError:
+        return None
+
+# Process line item
 def process_line_item(row, headers_map, create_inventory: bool, vendor_no):
     try:
         part_no = row[headers_map["PART NO"]].strip()
@@ -94,6 +107,14 @@ def process_line_item(row, headers_map, create_inventory: bool, vendor_no):
         # Safe extraction for optional fields
         unit_price = float(row[headers_map["UNIT PRICE"]].strip()) if "UNIT PRICE" in headers_map else None
         description = row[headers_map["DESCRIPTION"]].strip() if "DESCRIPTION" in headers_map else ""
+
+        # Clean numeric values
+        order_qty = clean_numeric(raw_qty)
+        unit_price = clean_numeric(raw_price) if raw_price else None
+
+        if order_qty is None:
+            raise ValueError(f"Invalid quantity: {raw_qty}")
+            
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error geting values for {part_no}: {e}") 
 
